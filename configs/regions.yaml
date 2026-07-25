@@ -1,0 +1,16 @@
+regions:
+  mediterranean:
+    name: "Mediterranean Coast"
+    bbox: [30.0, 31.2, 32.5, 31.65]
+
+  california:
+    name: "Southern California Coast"
+    bbox: [-118.175, 33.625, -117.95, 33.775]
+
+  west_africa:
+    name: "Gulf of Guinea, Ghana/Togo"
+    bbox: [-0.4, 5.5, 1.5, 6.2]
+
+  southeast_asia:
+    name: "Mekong Delta, Vietnam"
+    bbox: [105.5, 9.1, 107.0, 10.5]

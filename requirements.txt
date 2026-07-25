@@ -1,0 +1,9 @@
+pystac-client==0.9.0
+planetary-computer==1.0.0
+rasterio==1.5.0
+PyYAML==6.0.3
+pandas==3.0.3
+opencv-python-headless==5.0.0.93
+pillow==12.3.0
+pycocotools==2.0.11
+ultralytics==8.4.105
