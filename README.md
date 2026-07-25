@@ -58,6 +58,7 @@ Downloaded imagery and everything derived from it are not committed to this repo
 - `scripts/`: thin command line wrappers around `src/`
 - `main.py`: single entry point that dispatches to the scripts above by name
 - `notebooks/train_colab.ipynb`: Colab notebook for training on a free GPU, calling the same training code as the local script
+- `notebooks/predict_colab.ipynb`: Colab notebook for testing a trained model on new images, calling the same inference code as the local script
 
 ## Usage
 
@@ -75,6 +76,14 @@ Each command takes `--help` for its full argument list. A few worth knowing abou
 ```
 python main.py prepare-coco --input-dir <path to exported dataset> --output-dir <path>
 ```
+
+Once a model is trained, `predict` runs it on new images:
+
+```
+python main.py predict --model <path to best.pt> --input <path> --output-dir <path>
+```
+
+`--input` can be a single image, a folder of images, or a `.zip` file such as a Roboflow export, which is unpacked automatically. If the resulting folder contains a `test` subfolder, images are read from there. `--output-dir` is a project folder: each run creates a new numbered subfolder inside it (`inference_1`, `inference_2`, and so on), so repeated runs never overwrite each other. Each of those holds a `masks/` folder with the raw class-ID mask per image, an `overlays/` folder with a colored visualization, and a `results/results.csv` with one row per image giving the percentage of it taken up by each class.
 
 ## References
 

@@ -11,6 +11,7 @@ Commands:
     build-dataset   Build a YOLO tile dataset (local formats)   (scripts/build_yolo_dataset.py)
     prepare-coco    Convert a Roboflow/COCO export for training (scripts/prepare_coco_dataset.py)
     train           Train a YOLO26 semantic segmentation model  (scripts/train.py)
+    predict         Run a trained model on image(s)             (scripts/predict.py)
 """
 
 import argparse
@@ -23,6 +24,7 @@ COMMANDS = {
     "build-dataset": "scripts.build_yolo_dataset",
     "prepare-coco": "scripts.prepare_coco_dataset",
     "train": "scripts.train",
+    "predict": "scripts.predict",
 }
 
 
