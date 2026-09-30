@@ -6,7 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ultralytics import YOLO
 
-from src.inference import next_run_dir, resolve_input, run_inference
+from src.inference import resolve_input, run_inference
+from src.run_dirs import next_run_dir
 
 
 def main():

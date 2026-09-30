@@ -1,0 +1,29 @@
+satellites:
+  landsat:
+    name: "Landsat 8/9 Collection 2 L2"
+    collection: "landsat-c2-l2"
+    resolution_m: 30
+    default_start_date: "2013-01-01"
+    query:
+      platform: {"in": ["landsat-8", "landsat-9"]}
+    bands:
+      blue: blue
+      green: green
+      red: red
+      nir08: nir08
+      swir16: swir16
+      qa_pixel: qa_pixel
+
+  sentinel2:
+    name: "Sentinel-2 Level 2A"
+    collection: "sentinel-2-l2a"
+    resolution_m: 10
+    default_start_date: "2016-01-01"
+    query: {}
+    bands:
+      blue: B02
+      green: B03
+      red: B04
+      nir08: B08
+      swir16: B11
+      qa_pixel: SCL

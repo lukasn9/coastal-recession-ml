@@ -3,7 +3,9 @@ planetary-computer==1.0.0
 rasterio==1.5.0
 PyYAML==6.0.3
 pandas==2.2.2
-opencv-python-headless==5.0.0.93
+opencv-python-headless==4.10.0.84
 pillow>=10.0
 pycocotools==2.0.11
 ultralytics==8.4.105
+tqdm==4.70.0
+roboflow==1.4.0

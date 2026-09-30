@@ -1,8 +1,10 @@
 CLAUDE.md
-datasets/
+datasets.nosync/
 *.pt
 runs/
 __pycache__/
 .DS_Store
 models/
 output/
+.roboflow/
+.claude/

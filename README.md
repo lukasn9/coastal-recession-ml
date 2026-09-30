@@ -1,6 +1,6 @@
 # Coastal recession from satellite imagery
 
-This repository holds a pipeline for measuring sandy beach erosion (shoreline recession) from Landsat satellite imagery using semi-supervised deep learning. The aim is to detect where coastlines have lost sand over the past two decades and to estimate a rate of change in meters per year, using publicly available multispectral imagery.
+This repository holds a pipeline for measuring sandy beach erosion (shoreline recession) from satellite imagery using semi-supervised deep learning. The aim is to detect where coastlines have lost sand over the past two decades and to estimate a rate of change in meters per year, using publicly available multispectral imagery.
 
 ## Method
 
@@ -8,21 +8,19 @@ The pipeline currently has three working stages (acquisition, labeling, and mode
 
 ### Acquisition
 
-Imagery comes from Landsat 8 and 9 Collection 2 Level 2 surface reflectance products, accessed through the Microsoft Planetary Computer STAC catalog. For a given region, scenes are searched by bounding box, date range, and cloud cover, then thinned to one scene per period, keeping the one that has the lowest cloud cover. The period is configurable (monthly, seasonal, biyearly, or yearly) to adjust dataset size to fit the user's hardware.
+Imagery comes from Landsat 8 and 9 Collection 2 Level 2 surface reflectance products by default, accessed through the Microsoft Planetary Computer STAC catalog. Sentinel-2 Level 2A is available as an alternative (10m/pixel instead of 30m, at the cost of a shorter archive and about 9x the pixel count per scene); satellites are defined in `configs/satellites.yaml`. For a given region and satellite, scenes are searched by bounding box, date range, and cloud cover, then thinned to one scene per period, keeping the one that has the lowest cloud cover. The period is configurable (monthly, seasonal, biyearly, or yearly) to adjust dataset size to fit the user's hardware.
 
 ### Labeling
 
-Each scene is cloud-masked using the Landsat QA_PIXEL band, converted to physical surface reflectance, and used to compute NDWI for water and NDVI for vegetation. Pixels are labelled water or vegetation directly from these indices by thresholding. Everything that is neither water nor vegetation is labelled bare, a current placeholder class covering candidate sand along with anything else non-vegetated, such as bare rock, salt flats, or built structures.
+Each scene is cloud-masked (Landsat's QA_PIXEL bit flags or Sentinel-2's SCL classification band, whichever applies), converted to physical surface reflectance, and used to compute NDWI for water, NDVI for vegetation, and NDBI for built-up surfaces. Pixels are labelled water or vegetation directly from NDWI and NDVI by thresholding. Whatever is left is labelled built if its NDBI is high enough to look like concrete, asphalt, or roofing; everything still unclaimed is labelled bare, a placeholder class covering candidate sand along with any other bare ground NDBI does not catch, such as rock or salt flats.
+
+An optional further step narrows bare down to sand specifically, using a small binary sediment classifier trained separately on USGS's Coast Train dataset (see `WORKFLOWS.md`). It only ever runs on pixels already labelled bare; every other pixel keeps its NDWI/NDVI/NDBI label untouched.
 
 A red, green, blue composite is built separately from the same scene and is the only input the segmentation model uses. The spectral indices are used to generate labels, so a trained model can function purely with RGB images.
 
 ### Model training
 
 Labeled scenes are split into fixed size tiles. Tiles are exported in one of two formats: a native format for Ultralytics YOLO26 semantic segmentation training, or a COCO format with run length encoded segmentation, which can be imported into Roboflow for review and correction.
-
-### Shoreline extraction and change detection
-
-Yet to be implemented.
 
 ## Data
 
@@ -40,6 +38,7 @@ Downloaded imagery and derived data is not available in this repository and must
 ## Repository layout
 
 - `configs/regions.yaml`: region definitions, name and bounding box only
+- `configs/satellites.yaml`: satellite/collection definitions, STAC source and band mapping
 - `src/`: importable modules, one concern per file, covering raster I/O, spectral indices, cloud masking, tiling, dataset export, and training
 - `scripts/`: thin command line wrappers around `src/`
 - `main.py`: single entry point that dispatches to the scripts above by name
@@ -54,13 +53,29 @@ After installing dependencies with `pip install -r requirements.txt`, run `main.
 python main.py download --region mediterranean
 python main.py preprocess --region mediterranean
 python main.py build-dataset --region mediterranean
-python main.py train --data datasets/yolo_datasets/mediterranean/ultralytics/data.yaml
+python main.py train --data datasets/yolo_datasets/mediterranean/ultralytics/dataset_1/data.yaml
 ```
+
+`build-dataset` prints the exact path it wrote to (each run gets its own numbered `dataset_N` subfolder, so repeated runs never overwrite each other); see `WORKFLOWS.md` for every command and parameter, including the full walkthrough this is taken from.
 
 Each command takes `--help` for its full argument list.
 
 ```
+python main.py refine-sand --region mediterranean --model <path to a trained sediment model>
+```
+
+Optional, and slots in between `preprocess` and `build-dataset`: narrows the bare class down to sand using a trained sediment classifier, rather than leaving sand lumped in with other bare ground.
+
+```
 python main.py prepare-coco --input-dir <path to exported dataset> --output-dir <path>
+python main.py prepare-coasttrain --input <path to Coast Train export> --output-dir <path>
+```
+
+A COCO dataset can also be uploaded to Roboflow directly, instead of through the web UI:
+
+```
+python main.py roboflow-config --api-key <key>
+python main.py upload-roboflow --dataset-dir <path> --project <name>
 ```
 
 Once a model is trained, `predict` runs it on new images:

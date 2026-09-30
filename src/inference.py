@@ -1,11 +1,13 @@
 import csv
-import shutil
-import tempfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 from ultralytics import YOLO
+
+from src.archive_utils import extract_if_zip
+from src.run_dirs import next_run_dir
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
 
@@ -13,6 +15,8 @@ _KNOWN_COLORS = {
     "water": (46, 111, 191),
     "vegetation": (63, 158, 89),
     "bare": (207, 185, 137),
+    "built": (128, 128, 128),
+    "sand": (230, 200, 90),
 }
 _FALLBACK_PALETTE = [(196, 78, 82), (140, 109, 191), (219, 160, 60), (90, 180, 180), (150, 150, 150)]
 
@@ -25,10 +29,7 @@ def resolve_input(input_path: Path):
     containing a 'test' subfolder (the layout inside a Roboflow export) uses
     that subfolder; any other folder uses every image found directly inside it.
     """
-    if input_path.suffix.lower() == ".zip":
-        extract_dir = Path(tempfile.mkdtemp(prefix="predict_input_"))
-        shutil.unpack_archive(str(input_path), str(extract_dir))
-        input_path = extract_dir
+    input_path = extract_if_zip(input_path, prefix="predict_input_")
 
     if input_path.is_file():
         return input_path
@@ -38,26 +39,6 @@ def resolve_input(input_path: Path):
     if not images:
         raise FileNotFoundError(f"No images found in {search_dir}")
     return images
-
-
-def next_run_dir(base_dir: Path, prefix: str = "inference") -> Path:
-    """
-    Pick and create the next numbered run directory under base_dir, e.g.
-    inference_1, inference_2, matching how Ultralytics numbers its own
-    runs/train folders, so repeated inference runs never overwrite older
-    output and the latest one is easy to spot.
-    """
-    base_dir.mkdir(parents=True, exist_ok=True)
-    existing = []
-    for p in base_dir.iterdir():
-        if p.is_dir() and p.name.startswith(f"{prefix}_"):
-            suffix = p.name[len(prefix) + 1:]
-            if suffix.isdigit():
-                existing.append(int(suffix))
-
-    run_dir = base_dir / f"{prefix}_{max(existing, default=0) + 1}"
-    run_dir.mkdir(parents=True)
-    return run_dir
 
 
 def class_colors(names: dict[int, str]) -> dict[int, tuple[int, int, int]]:
@@ -125,7 +106,7 @@ def run_inference(model: YOLO, source, run_dir: Path) -> list[dict]:
     results = model(source_paths, verbose=False, stream=True)
 
     summaries = []
-    for image_path, result in zip(source_paths, results):
+    for image_path, result in tqdm(zip(source_paths, results), total=len(source_paths), desc="Running inference", unit="image"):
         mask = result.semantic_mask.data
         if hasattr(mask, "cpu"):
             mask = mask.cpu().numpy()

@@ -2,14 +2,17 @@ import random
 from pathlib import Path
 
 import numpy as np
+from tqdm import tqdm
 
 from src import autolabel, coco_export, raster_io, semantic_export, tiling
 
-CLASS_NAMES = ["water", "vegetation", "bare"]
+CLASS_NAMES = ["water", "vegetation", "bare", "built", "sand"]
 _RAW_LABEL_TO_CLASS_ID = {
     autolabel.LABEL_WATER: 0,
     autolabel.LABEL_VEGETATION: 1,
     autolabel.LABEL_BARE: 2,
+    autolabel.LABEL_BUILT: 3,
+    autolabel.LABEL_SAND: 4,
 }
 
 EXPORT_FORMATS = ("ultralytics", "coco")
@@ -41,8 +44,11 @@ def build_tile_dataset(
     """
     Build a segmentation tile dataset from every preprocessed scene under region_dir.
     Scenes are split whole into train/val so neighboring tiles from the same scene
-    never leak across the split. label.tif's own class scheme (0=water, 1=vegetation,
-    2=bare, 255=invalid/ignore) is used directly, no remapping needed.
+    never leak across the split. The label raster's own class scheme (0=water,
+    1=vegetation, 2=bare, 3=built, 4=sand, 255=invalid/ignore) is used directly, no
+    remapping needed. Uses label_refined.tif (from `main.py refine-sand`) when
+    present, so a scene's bare/sand split reflects the trained sediment model rather
+    than the plain NDWI/NDVI labeling; falls back to label.tif otherwise.
 
     export_format:
       - "ultralytics": images/{split} + masks/{split} PNGs + data.yaml, for local
@@ -63,12 +69,16 @@ def build_tile_dataset(
     counts = {"train_tiles": 0, "val_tiles": 0, "skipped_tiles": 0, "scenes": len(scene_dirs)}
     coco_writers = {"train": coco_export.CocoDatasetWriter(CLASS_NAMES), "val": coco_export.CocoDatasetWriter(CLASS_NAMES)}
 
-    for scene_dir in scene_dirs:
+    for scene_dir in tqdm(scene_dirs, desc="Tiling scenes", unit="scene"):
         split = split_by_scene[scene_dir]
         processed_dir = scene_dir / "processed"
 
+        label_path = processed_dir / "label_refined.tif"
+        if not label_path.exists():
+            label_path = processed_dir / "label.tif"
+
         rgb, _ = raster_io.read_multiband(processed_dir / "rgb.tif")
-        label, _ = raster_io.read_band(processed_dir / "label.tif")
+        label, _ = raster_io.read_band(label_path)
 
         height, width = label.shape
         for bounds in tiling.tile_bounds(height, width, tile_size):

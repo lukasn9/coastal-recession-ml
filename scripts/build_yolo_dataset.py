@@ -6,12 +6,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.dataset_builder import EXPORT_FORMATS, build_tile_dataset
 from src.regions import load_regions
+from src.run_dirs import next_run_dir
+from src.satellites import DEFAULT_SATELLITE, load_satellites
 
 DATASETS_DIR = Path(__file__).resolve().parent.parent / "datasets"
 
 
 def main():
     regions = load_regions()
+    satellites = load_satellites()
 
     parser = argparse.ArgumentParser(
         description="Build a YOLO semantic-segmentation tile dataset (images + class-ID masks) "
@@ -22,6 +25,12 @@ def main():
         required=True,
         choices=list(regions.keys()),
         help="Region key defined in configs/regions.yaml",
+    )
+    parser.add_argument(
+        "--satellite",
+        choices=list(satellites.keys()),
+        default=DEFAULT_SATELLITE,
+        help="Satellite the scenes were downloaded and preprocessed with (default: landsat)",
     )
     parser.add_argument(
         "--export-format",
@@ -57,14 +66,19 @@ def main():
     )
     args = parser.parse_args()
 
-    region_dir = DATASETS_DIR / args.region
+    region_dir = DATASETS_DIR / args.region / args.satellite
     if not region_dir.exists():
-        print(f"No downloaded data for region '{args.region}' at {region_dir}")
+        print(f"No downloaded {args.satellite} data for region '{args.region}' at {region_dir}")
         return
 
-    # Formats never share a folder — each gets its own subdirectory under the region.
-    output_dir = DATASETS_DIR / "yolo_datasets" / args.region / args.export_format
+    # Satellites and formats never share a folder (tile_size means a different
+    # real-world coverage at 10m vs 30m/pixel), and each run gets its own
+    # numbered dataset_N subfolder inside that, so repeated runs never
+    # overwrite each other.
+    format_dir = DATASETS_DIR / "yolo_datasets" / args.region / args.satellite / args.export_format
+    output_dir = next_run_dir(format_dir, prefix="dataset")
     print(f"Region:      {regions[args.region]['name']}")
+    print(f"Satellite:   {satellites[args.satellite]['name']}")
     print(f"Format:      {args.export_format}")
     print(f"Tile size:   {args.tile_size}x{args.tile_size}")
     print(f"Val split:   {args.val_fraction:.0%} of scenes (seed={args.seed})")
